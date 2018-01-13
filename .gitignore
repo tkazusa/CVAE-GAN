@@ -14,4 +14,4 @@ graimg/
 gra_out/
 mnist_out/
 __pycache__/
-*.h5py
+models/*.h5py
