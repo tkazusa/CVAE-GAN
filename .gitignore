@@ -4,6 +4,9 @@ nput/
 *.pkl
 *~
 *.swp
-data/
+data/*
+output/*
+result*
+datasets/files/*
 *.jpg
 *.png
