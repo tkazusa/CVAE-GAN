@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 
-from models.cvaegan import CVAEGAN
+from models.cvaegan2 import CVAEGAN
 from data.gravure import load_data
 from data import mnist
 
@@ -51,7 +51,7 @@ def main():
     # Construct model
     if args.model not in models:
         raise Exception('Unknown model:', args.model)
-
+    print(datasets.images.shape[1:])
     model = models[args.model](
         input_shape=datasets.images.shape[1:],
         num_attrs=len(datasets.attr_names),

@@ -10,3 +10,7 @@ result*
 datasets/files/*
 *.jpg
 *.png
+graimg/
+gra_out/
+mnist_out/
+

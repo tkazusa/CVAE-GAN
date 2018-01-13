@@ -63,8 +63,8 @@ class BaseModel(metaclass=ABCMeta):
         if input_shape == (32, 32, 3):
             return
 
-        errmsg = 'Input size should be 32 x 32 or 64 x 64!'
-        raise Exception(errmsg)
+        #errmsg = 'Input size should be 32 x 32 or 64 x 64!'
+        #raise Exception(errmsg)
 
     def main_loop(self, datasets, samples, epochs=100, batchsize=100, reporter=[]):
         '''
