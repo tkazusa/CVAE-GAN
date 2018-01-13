@@ -1,0 +1,9 @@
+nput/
+*.csv
+*.gz
+*.pkl
+*~
+*.swp
+data/
+*.jpg
+*.png
