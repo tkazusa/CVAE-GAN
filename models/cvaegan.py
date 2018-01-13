@@ -329,8 +329,11 @@ class CVAEGAN(CondBaseModel):
         x = Conv2D(filters=3, kernel_size=(3,3), strides=(1,1))(x)
 
         base_model = get_vgg19_model()
-        for layer in base_model.layers:
-            layer.trainable = False
+        for idx, layer in enumerate(base_model.layers):
+            if idx < 19:
+                layer.trainable = False
+            else:
+                layer.trainable = True
 
         x = base_model(x)
         x = Flatten()(x)
@@ -396,9 +399,11 @@ class CVAEGAN(CondBaseModel):
 
 
         base_model = get_vgg19_model()
-        for layer in base_model.layers:
-            layer.trainable = False
-
+        for idx, layer in enumerate(base_model.layers):
+            if idx < 19:
+                layer.trainable = False
+            else:
+                layer.trainable = True
 
 
         x = base_model(inputs)
