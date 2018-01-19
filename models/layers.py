@@ -1,6 +1,6 @@
 import keras
 from keras.engine.topology import Layer
-from keras.layers import Conv2D, UpSampling2D, BatchNormalization, Conv2DTranspose
+from keras.layers import Conv2D, UpSampling2D, BatchNormalization, Conv2DTranspose, add
 from keras.layers import Activation, ELU, LeakyReLU, Dropout, Lambda
 from keras import backend as K
 
@@ -87,6 +87,26 @@ def BasicConvLayer(
         return x
 
     return fun
+
+def ResidualConvLayer(
+    filters,
+    kernel_size=(3,3),
+    padding="same",
+    strides=(1,1),
+    bnorm=True,
+    dropout=0.0,
+    activation="leaky_relu"):
+
+    def fun(inputs):
+        x_shortcut = BasicConvLayer(filters, kernel_size, padding, strides)(inputs)
+        x = BasicConvLayer(filters, kernel_size, padding, strides)(x_shortcut)
+        x = BasicConvLayer(filters, kernel_size, padding, strides)(x)
+        x = add([x_shortcut, x])
+
+        return x
+
+    return fun
+
 
 def BasicDeconvLayer(
     filters,

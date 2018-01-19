@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 
-from models.cvaegan import CVAEGAN
+from models.cvaegan_res2 import CVAEGAN
 from data.gravure import load_data
 from data import mnist
 
