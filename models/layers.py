@@ -53,7 +53,7 @@ class MinibatchDiscrimination(Layer):
 
 def BasicConvLayer(
     filters,
-    kernel_size=(5, 5),
+    kernel_size=(3,3),
     padding='same',
     strides=(1, 1),
     bnorm=True,
@@ -110,7 +110,7 @@ def ResidualConvLayer(
 
 def BasicDeconvLayer(
     filters,
-    kernel_size=(5, 5),
+    kernel_size=(3, 3),
     padding='same',
     strides=(1, 1),
     bnorm=True,

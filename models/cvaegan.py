@@ -309,38 +309,21 @@ class CVAEGAN(CondBaseModel):
 
     def build_encoder(self, output_dims):
 
-        def get_vgg19_model():
-            model_path = "./models/vgg19.h5py"
-            if not os.path.exists(model_path):
-                # 出力層側の全結合層３つをモデルから省く
-                model = VGG19(weights='imagenet', include_top=False)
-                model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-            else:
-                model = load_model(model_path)
-            return model
-
-
         x_inputs = Input(shape=self.input_shape)
         c_inputs = Input(shape=(self.num_attrs,))
 
         c = Reshape((1, 1, self.num_attrs))(c_inputs)
         c = UpSampling2D(size=self.input_shape[:2])(c)
         x = Concatenate(axis=-1)([x_inputs, c])
-        #x = Conv2D(filters=3, kernel_size=(3,3), strides=(1,1))(x)
 
-        #base_model = get_vgg19_model()
-        #for idx, layer in enumerate(base_model.layers):
-        #    if idx < 10:
-        #        layer.trainable = False
-        #    else:
-        #        layer.trainable = True
-
-        x = BasicConvLayer(filters=128, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=256, strides=(2, 2))(x)
         x = BasicConvLayer(filters=256, strides=(2, 2))(x)
         x = BasicConvLayer(filters=512, strides=(2, 2))(x)
-        x = BasicConvLayer(filters=1024, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=1024, strides=(1, 1))(x)
+        x = BasicConvLayer(filters=1024, strides=(1, 1))(x)
+        x = BasicConvLayer(filters=2048, strides=(1, 1))(x)
+        x = BasicConvLayer(filters=2048, strides=(1, 1))(x)
 
-        #x = base_model(x)
         x = Flatten()(x)
         x = Dense(1024)(x)
         x = Activation('relu')(x)
@@ -362,11 +345,10 @@ class CVAEGAN(CondBaseModel):
 
         x = Reshape((w, w, 512))(x)
 
+        x = BasicDeconvLayer(filters=1024, strides=(2, 2))(x)
         x = BasicDeconvLayer(filters=512, strides=(2, 2))(x)
         x = BasicDeconvLayer(filters=256, strides=(2, 2))(x)
         x = BasicDeconvLayer(filters=128, strides=(2, 2))(x)
-        x = BasicDeconvLayer(filters=92, strides=(2, 2))(x)
-        x = BasicDeconvLayer(filters=64, strides=(2, 2))(x)
 
         d = self.input_shape[2]
         x = BasicDeconvLayer(filters=d, strides=(1, 1), bnorm=False, activation='tanh')(x)
@@ -376,10 +358,31 @@ class CVAEGAN(CondBaseModel):
     def build_discriminator(self):
         inputs = Input(shape=self.input_shape)
 
-        x = BasicConvLayer(filters=128, strides=(2, 2))(inputs)
-        x = BasicConvLayer(filters=256, strides=(2, 2))(x)
-        x = BasicConvLayer(filters=512, strides=(2, 2))(x)
-        x = BasicConvLayer(filters=1024, strides=(2, 2))(x)
+        def get_vgg19_model():
+            model_path = "./models/vgg19.h5py"
+            if not os.path.exists(model_path):
+                # 出力層側の全結合層３つをモデルから省く
+                model = VGG19(weights='imagenet', include_top=False)
+                model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
+            else:
+                model = load_model(model_path)
+            return model
+
+
+        base_model = get_vgg19_model()
+        for idx, layer in enumerate(base_model.layers):
+            if idx < 23:
+                layer.trainable = False
+            else:
+                layer.trainable = True
+
+
+        x = base_model(inputs)
+      
+        #x = BasicConvLayer(filters=128, strides=(2, 2))(inputs)
+        #x = BasicConvLayer(filters=256, strides=(2, 2))(x)
+        #x = BasicConvLayer(filters=512, strides=(2, 2))(x)
+        #x = BasicConvLayer(filters=1024, strides=(2, 2))(x)
 
         f = Flatten()(x)
         x = Dense(1024)(f)
@@ -406,7 +409,7 @@ class CVAEGAN(CondBaseModel):
 
         base_model = get_vgg19_model()
         for idx, layer in enumerate(base_model.layers):
-            if idx < 21:
+            if idx < 23:
                 layer.trainable = False
             else:
                 layer.trainable = True

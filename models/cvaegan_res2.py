@@ -316,10 +316,13 @@ class CVAEGAN(CondBaseModel):
         c = UpSampling2D(size=self.input_shape[:2])(c)
         x = Concatenate(axis=-1)([x_inputs, c])
 
-        x = ResidualConvLayer(filters=128, strides=(1, 1))(x)
-        #x = BasicConvLayer(filters=256, strides=(2, 2))(x)
-        #x = BasicConvLayer(filters=256, strides=(2, 2))(x)
-        #x = BasicConvLayer(filters=512, strides=(2, 2))(x)
+        #x = ResidualConvLayer(filters=128, strides=(1, 1))(x)
+        x = BasicConvLayer(filters=32, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=64, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=128, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=256, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=512, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=1024, strides=(2, 2))(x)
 
         x = Flatten()(x)
         x = Dense(1024)(x)
@@ -344,8 +347,9 @@ class CVAEGAN(CondBaseModel):
 
         x = BasicDeconvLayer(filters=512, strides=(2, 2))(x)
         x = BasicDeconvLayer(filters=256, strides=(2, 2))(x)
-        x = BasicDeconvLayer(filters=256, strides=(2, 2))(x)
         x = BasicDeconvLayer(filters=128, strides=(2, 2))(x)
+        x = BasicDeconvLayer(filters=64, strides=(2, 2))(x)
+        x = BasicDeconvLayer(filters=32, strides=(2, 2))(x)
 
         d = self.input_shape[2]
         x = BasicDeconvLayer(filters=d, strides=(1, 1), bnorm=False, activation='tanh')(x)
@@ -355,10 +359,12 @@ class CVAEGAN(CondBaseModel):
     def build_discriminator(self):
         inputs = Input(shape=self.input_shape)
 
-        x = BasicConvLayer(filters=128, strides=(2, 2))(inputs)
-        x = BasicConvLayer(filters=256, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=32, strides=(2, 2))(inputs)
+        x = BasicConvLayer(filters=64, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=128, strides=(2, 2))(x)
         x = BasicConvLayer(filters=256, strides=(2, 2))(x)
         x = BasicConvLayer(filters=512, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=1024, strides=(2, 2))(x)
 
         f = Flatten()(x)
         x = Dense(1024)(f)
