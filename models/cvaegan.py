@@ -6,7 +6,7 @@ from keras.engine.topology import Layer
 from keras.models import Model
 from keras.layers import Input, Flatten, Dense, Lambda, Reshape, Concatenate
 from keras.layers import Activation, LeakyReLU, ELU
-from keras.layers import Conv2D, Conv2DTranspose, UpSampling2D, BatchNormalization
+from keras.layers import Conv2D, Conv2DTranspose, UpSampling2D, BatchNormalization, GlobalAveragePooling2D
 from keras.optimizers import Adam
 from keras import backend as K
 from keras.applications.vgg19 import VGG19
@@ -319,10 +319,8 @@ class CVAEGAN(CondBaseModel):
         x = BasicConvLayer(filters=256, strides=(2, 2))(x)
         x = BasicConvLayer(filters=256, strides=(2, 2))(x)
         x = BasicConvLayer(filters=512, strides=(2, 2))(x)
-        x = BasicConvLayer(filters=1024, strides=(1, 1))(x)
-        x = BasicConvLayer(filters=1024, strides=(1, 1))(x)
-        x = BasicConvLayer(filters=2048, strides=(1, 1))(x)
-        x = BasicConvLayer(filters=2048, strides=(1, 1))(x)
+        x = BasicConvLayer(filters=1024, strides=(2, 2))(x)
+        x = BasicConvLayer(filters=1024, strides=(2, 2))(x)
 
         x = Flatten()(x)
         x = Dense(1024)(x)
@@ -345,7 +343,7 @@ class CVAEGAN(CondBaseModel):
 
         x = Reshape((w, w, 512))(x)
 
-        x = BasicDeconvLayer(filters=512, strides=(2, 2))(x)
+        x = BasicDeconvLayer(filters=1024, strides=(2, 2))(x)
         x = BasicDeconvLayer(filters=512, strides=(2, 2))(x)
         x = BasicDeconvLayer(filters=256, strides=(2, 2))(x)
         x = BasicDeconvLayer(filters=128, strides=(2, 2))(x)
@@ -363,9 +361,10 @@ class CVAEGAN(CondBaseModel):
         x = BasicConvLayer(filters=512, strides=(2, 2))(x)
         x = BasicConvLayer(filters=512, strides=(2, 2))(x)
 
-        f = Flatten()(x)
-        x = Dense(1024)(f)
-        x = Activation('relu')(x)
+        #f = Flatten()(x)
+        #x = Dense(1024)(f)
+        f = GlobalAveragePooling2D()(x)
+        x = Activation('relu')(f)
 
         x = Dense(1)(x)
         x = Activation('sigmoid')(x)
