@@ -11,16 +11,7 @@ import matplotlib.gridspec as gridspec
 from keras.models import load_model
 from abc import ABCMeta, abstractmethod
 
-from .utils import *
-
-def time_format(t):
-    m, s = divmod(t, 60)
-    m = int(m)
-    s = int(s)
-    if m == 0:
-        return '%d sec' % s
-    else:
-        return '%d min %d sec' % (m, s)
+from .utils import set_trainable, zero_loss, time_format
 
 class BaseModel(metaclass=ABCMeta):
     '''
@@ -31,47 +22,23 @@ class BaseModel(metaclass=ABCMeta):
         '''
         Initialization
         '''
-        if 'name' not in kwargs:
-            raise Exception('Please specify model name!')
-
-        self.name = kwargs['name']
-
-        if 'input_shape' not in kwargs:
-            raise Exception('Please specify input shape!')
-
-        self.check_input_shape(kwargs['input_shape'])
-        self.input_shape = kwargs['input_shape']
 
         if 'output' not in kwargs:
             self.output = 'output'
         else:
             self.output = kwargs['output']
 
-        self.test_mode = False
         self.trainers = {}
+        self.attr_names = None
 
-    def check_input_shape(self, input_shape):
-        # Check for CelebA
-        if input_shape == (64, 64, 3):
-            return
-
-        # Check for MNIST (size modified)
-        if input_shape == (32, 32, 1):
-            return
-
-        # Check for Cifar10, 100 etc
-        if input_shape == (32, 32, 3):
-            return
-
-        #errmsg = 'Input size should be 32 x 32 or 64 x 64!'
-        #raise Exception(errmsg)
-
-    def main_loop(self, datasets, samples, epochs=100, batchsize=100, reporter=[]):
+    def main_loop(self, datasets, samples, attr_names, epochs=100, batchsize=100, reporter=[]):
         '''
         Main learning loop
         '''
+        self.attr_names = attr_names
+
         # Create output directories if not exist
-        out_dir = os.path.join(self.output, self.name)
+        out_dir = self.output
         if not os.path.isdir(out_dir):
             os.mkdir(out_dir)
 
@@ -119,43 +86,54 @@ class BaseModel(metaclass=ABCMeta):
                     outfile = os.path.join(res_out_dir, 'epoch_%04d_batch_%d.png' % (e + 1, b + bsize))
                     self.save_images(samples, outfile)
 
-                if self.test_mode:
-                    print('\nFinish testing: %s' % self.name)
-                    return
-
             print('')
-
             # Save current weights
             self.save_model(wgt_out_dir, e + 1)
+
 
     def make_batch(self, datasets, indx):
         '''
         Get batch from datasets
         '''
-        return datasets[indx]
+        images = datasets.images[indx]
+        attrs = datasets.attrs[indx]
+
+        return images, attrs
+
 
     def save_images(self, samples, filename):
         '''
         Save images generated from random sample numbers
         '''
-        imgs = self.predict(samples) * 0.5 + 0.5
+        assert self.attr_names is not None
+        
+        num_samples = len(samples)
+        attrs = np.identity(self.num_attrs)
+        attrs = np.tile(attrs, (num_samples, 1)) #TODO: Is there a better method on keras?
+
+        samples = np.tile(samples, (1, self.num_attrs))
+        samples = samples.reshape((num_samples * self.num_attrs, -1))
+
+        imgs = self.predict([samples, attrs]) * 0.5 + 0.5
         imgs = np.clip(imgs, 0.0, 1.0)
+        
         if imgs.shape[3] == 1:
             imgs = np.squeeze(imgs, axis=(3,))
 
-        fig = plt.figure(figsize=(8, 8))
-        grid = gridspec.GridSpec(10, 10, wspace=0.1, hspace=0.1)
-        for i in range(100):
+        fig = plt.figure(figsize=(self.num_attrs, 10))
+        grid = gridspec.GridSpec(num_samples, self.num_attrs, wspace=0.1, hspace=0.1)
+        for i in range(num_samples * self.num_attrs):
             ax = plt.Subplot(fig, grid[i])
             if imgs.ndim == 4:
-                ax.imshow(imgs[i, :, :, :], interpolation='none', vmin=0.0, vmax=1.0)
+                ax.imshow(imgs[i, :, :, :], interpolation="none", vmin=0.0, vmax=1.0)
             else:
-                ax.imshow(imgs[i, :, :], cmap='gray', interpolation='none', vmin=0.0, vmax=1.0)
-            ax.axis('off')
+                ax.imshow(imgs[i, :, :], camp="gray", interpolation="none", vmin=0.0, vmax=1.0)
+            ax.axis("off")
             fig.add_subplot(ax)
 
         fig.savefig(filename, dpi=200)
         plt.close(fig)
+
 
     def save_model(self, out_dir, epoch):
         folder = os.path.join(out_dir, 'epoch_%05d' % epoch)

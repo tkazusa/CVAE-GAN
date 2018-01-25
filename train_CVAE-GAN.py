@@ -13,14 +13,10 @@ from models.cvaegan import CVAEGAN
 from data.gravure import load_data
 from data import mnist
 
-models = {
-    'cvaegan': CVAEGAN,
-}
 
 def main():
     # Parsing arguments
     parser = argparse.ArgumentParser(description='Training GANs or VAEs')
-    parser.add_argument('--model', type=str, required=True)
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--epoch', type=int, default=200)
     parser.add_argument('--batchsize', type=int, default=50)
@@ -48,20 +44,13 @@ def main():
     else:
         datasets = load_data(args.dataset)
 
-    # Construct model
-    if args.model not in models:
-        raise Exception('Unknown model:', args.model)
     print(datasets.images.shape[1:])
-    model = models[args.model](
+    model = CVAEGAN(
         input_shape=datasets.images.shape[1:],
         num_attrs=len(datasets.attr_names),
         z_dims=args.zdims,
         output=args.output
     )
-
-    if args.resume is not None:
-        model.load_model(args.resume)
-
     # Training loop
     datasets.images = datasets.images * 2.0 - 1.0
     samples = np.random.normal(size=(10, args.zdims)).astype(np.float32)

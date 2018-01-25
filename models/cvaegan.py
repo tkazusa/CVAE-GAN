@@ -9,23 +9,15 @@ from keras.layers import Activation, LeakyReLU, ELU
 from keras.layers import Conv2D, Conv2DTranspose, UpSampling2D, BatchNormalization, GlobalAveragePooling2D
 from keras.optimizers import Adam
 from keras import backend as K
-from keras.applications.vgg19 import VGG19
+from keras.applications.vgg16 import VGG16
 from keras.models import load_model
 
 
-from .cond_base import CondBaseModel
+
+from .base import BaseModel
 from .layers import *
-from .utils import *
+from .utils import set_trainable, zero_loss, sample_normal, time_format
 
-def sample_normal(args):
-    z_avg, z_log_var = args
-    batch_size = K.shape(z_avg)[0]
-    z_dims = K.shape(z_avg)[1]
-    eps = K.random_normal(shape=(batch_size, z_dims), mean=0.0, stddev=1.0)
-    return z_avg + K.exp(z_log_var / 2.0) * eps
-
-def zero_loss(y_true, y_pred):
-    return K.zeros_like(y_true)
 
 class ClassifierLossLayer(Layer):
     __name__ = 'classifier_loss_layer'
@@ -154,15 +146,15 @@ def generator_accuracy(x_p, x_f):
 
     return accfun
 
-class CVAEGAN(CondBaseModel):
+class CVAEGAN(BaseModel):
     def __init__(self,
-        input_shape=(64, 64, 3),
-        num_attrs=40,
-        z_dims = 128,
-        name='cvaegan',
+        input_shape=(128, 128, 3),
+        num_attrs=2,
+        z_dims = 256,
+        #name='cvaegan',
         **kwargs
     ):
-        super(CVAEGAN, self).__init__(input_shape=input_shape, name=name, **kwargs)
+        super(CVAEGAN, self).__init__(input_shape=input_shape, **kwargs)
 
         self.input_shape = input_shape
         self.num_attrs = num_attrs
@@ -223,10 +215,10 @@ class CVAEGAN(CondBaseModel):
         # Algorithm
         x_r = Input(shape=self.input_shape)
         c = Input(shape=(self.num_attrs,))
-        z_params = self.f_enc([x_r, c])
+        z_params = self.f_enc([x_r, c]) #TODO:dim of z shold be checked
 
         z_avg = Lambda(lambda x: x[:, :self.z_dims], output_shape=(self.z_dims,))(z_params)
-        z_log_var = Lambda(lambda x: x[:, self.z_dims:], output_shape=(self.z_dims,))(z_params)
+        z_log_var = Lambda(lambda x: x[:, self.z_dims:], output_shape=(self.z_dims,))(z_params) #TODO: check "x"
         z = Lambda(sample_normal, output_shape=(self.z_dims,))([z_avg, z_log_var])
 
         kl_loss = KLLossLayer()([z_avg, z_log_var])
@@ -308,30 +300,47 @@ class CVAEGAN(CondBaseModel):
         self.store_to_save('enc_trainer')
 
     def build_encoder(self, output_dims):
+        """Originally network E is a GoogleNet, categorical information is mereged at the last FC layer of the E network
+        """
+        
+        def get_VGG16():
+            model_path = "./models/vgg16.h5py"
+            if not os.path.exists(model_path):
+                model = VGG16(weights="imagenet", include_top=False)
+                model.save(model_path)
+            else:
+                model = load_model(model_path)
+            
+            for i, layer in enumerate(model.layers):
+                if i < 21:
+                    layer.trainable = False
+                else:
+                    layer.trainable = True
+
+            return model
+
 
         x_inputs = Input(shape=self.input_shape)
-        c_inputs = Input(shape=(self.num_attrs,))
+        base_model = get_VGG16()
 
-        c = Reshape((1, 1, self.num_attrs))(c_inputs)
-        c = UpSampling2D(size=self.input_shape[:2])(c)
-        x = Concatenate(axis=-1)([x_inputs, c])
-
-        x = BasicConvLayer(filters=256, strides=(2, 2))(x)
-        x = BasicConvLayer(filters=256, strides=(2, 2))(x)
-        x = BasicConvLayer(filters=512, strides=(2, 2))(x)
-        x = BasicConvLayer(filters=1024, strides=(2, 2))(x)
-        x = BasicConvLayer(filters=1024, strides=(2, 2))(x)
-
+        x = base_model(x_inputs)
         x = Flatten()(x)
-        x = Dense(1024)(x)
-        x = Activation('relu')(x)
 
+        c_inputs = Input(shape=(self.num_attrs,))
+        x = Concatenate(axis=-1)([x, c_inputs])
+
+        x = Dense(1024)(x)
+        x = LeakyReLU(0.3)(x) 
+        
         x = Dense(output_dims)(x)
-        x = Activation('linear')(x)
+        x = Activation("linear")(x)
 
         return Model([x_inputs, c_inputs], x)
 
     def build_decoder(self):
+        """
+        2 fully conected network followed by 6 deconv layers with 2-by-2 upsampling. The convolution layers have 256, 256, 128, 92, 64 and 3 channels with filter size of 3*3, 3*3, 5*5, 5*5, 5*5, 5*5.
+        """
         z_inputs = Input(shape=(self.z_dims,))
         c_inputs = Input(shape=(self.num_attrs,))
         z = Concatenate()([z_inputs, c_inputs])
@@ -341,12 +350,16 @@ class CVAEGAN(CondBaseModel):
         x = BatchNormalization()(x)
         x = Activation('relu')(x)
 
+        x = Dense(w * w * 512)(z)
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+
         x = Reshape((w, w, 512))(x)
 
-        x = BasicDeconvLayer(filters=1024, strides=(2, 2))(x)
-        x = BasicDeconvLayer(filters=512, strides=(2, 2))(x)
-        x = BasicDeconvLayer(filters=256, strides=(2, 2))(x)
-        x = BasicDeconvLayer(filters=128, strides=(2, 2))(x)
+        x = BasicDeconvLayer(filters=1024, strides=(2, 2), kernel_size=(3,3))(x)
+        x = BasicDeconvLayer(filters=512, strides=(2, 2), kernel_size=(3,3))(x)
+        x = BasicDeconvLayer(filters=256, strides=(2, 2), kernel_size=(5,5))(x)
+        x = BasicDeconvLayer(filters=128, strides=(2, 2), kernel_size=(5,5))(x)
 
         d = self.input_shape[2]
         x = BasicDeconvLayer(filters=d, strides=(1, 1), bnorm=False, activation='tanh')(x)
@@ -354,6 +367,9 @@ class CVAEGAN(CondBaseModel):
         return Model([z_inputs, c_inputs], x)
 
     def build_discriminator(self):
+        """
+        use as the same network as DCGAN.
+        """
         inputs = Input(shape=self.input_shape)
       
         x = BasicConvLayer(filters=128, strides=(2, 2))(inputs)
@@ -361,10 +377,10 @@ class CVAEGAN(CondBaseModel):
         x = BasicConvLayer(filters=512, strides=(2, 2))(x)
         x = BasicConvLayer(filters=512, strides=(2, 2))(x)
 
-        #f = Flatten()(x)
-        #x = Dense(1024)(f)
-        f = GlobalAveragePooling2D()(x)
-        x = Activation('relu')(f)
+        f = Flatten()(x)
+        x = Dense(1024)(f)
+        #f = GlobalAveragePooling2D()(x)
+        x = LeakyReLU(0.3)(x)
 
         x = Dense(1)(x)
         x = Activation('sigmoid')(x)
@@ -372,6 +388,9 @@ class CVAEGAN(CondBaseModel):
         return Model(inputs, [x, f])
 
     def build_classifier(self):
+        """
+        Alex net
+        """
         inputs = Input(shape=self.input_shape)
       
         x = BasicConvLayer(filters=128, strides=(2, 2))(inputs)
