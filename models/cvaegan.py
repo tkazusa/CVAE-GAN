@@ -374,9 +374,9 @@ class CVAEGAN(BaseModel):
         x = BasicConvLayer(filters=512, strides=(2, 2))(x)
         x = BasicConvLayer(filters=512, strides=(2, 2))(x)
 
-        f = Flatten()(x)
-        x = Dense(1024)(f)
-        #f = GlobalAveragePooling2D()(x)
+        #f = Flatten()(x)
+        #x = Dense(1024)(f)
+        f = GlobalAveragePooling2D()(x)
         x = LeakyReLU(0.3)(x)
 
         x = Dense(1)(x)
