@@ -12,8 +12,6 @@ from keras import backend as K
 from keras.applications.vgg16 import VGG16
 from keras.models import load_model
 
-
-
 from .base import BaseModel
 from .layers import *
 from .utils import set_trainable, zero_loss, sample_normal, time_format
@@ -97,7 +95,7 @@ class FeatureMatchingLayer(Layer):
     def lossfun(self, f1, f2):
         f1_avg = K.mean(f1, axis=0)
         f2_avg = K.mean(f2, axis=0)
-        return 0.5 * K.mean(K.square(f1_avg - f2_avg))
+        return 10**-3 * 0.5 * K.mean(K.square(f1_avg - f2_avg))
 
     def call(self, inputs):
         f1 = inputs[0]
@@ -116,7 +114,7 @@ class KLLossLayer(Layer):
 
     def lossfun(self, z_avg, z_log_var):
         kl_loss = -0.5 * K.mean(1.0 + z_log_var - K.square(z_avg) - K.exp(z_log_var))
-        return kl_loss
+        return 3 * kl_loss
 
     def call(self, inputs):
         z_avg = inputs[0]
@@ -150,8 +148,7 @@ class CVAEGAN(BaseModel):
     def __init__(self,
         input_shape=(128, 128, 3),
         num_attrs=2,
-        z_dims = 256,
-        #name='cvaegan',
+        z_dims = 64,
         **kwargs
     ):
         super(CVAEGAN, self).__init__(input_shape=input_shape, **kwargs)
